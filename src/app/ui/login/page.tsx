@@ -11,7 +11,7 @@ const validationSchema = Yup.object({
     .email("Formato de email inválido")
     .required("El email es obligatorio"),
   password: Yup.string()
-    .min(6, "La contraseña debe tener al menos 4 caracteres")
+    .min(4, "La contraseña debe tener al menos 4 caracteres")
     .required("La contraseña es obligatoria"),
 });
 
