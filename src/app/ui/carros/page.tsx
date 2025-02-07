@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import axios from "axios";
 import {
   Table,
   TableBody,
@@ -15,9 +14,18 @@ import {
   Typography,
   TablePagination,
   IconButton,
+  Button,
+  Modal,
+  Box,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import AddIcon from "@mui/icons-material/Add";
 
 // Define the Car type
 type Car = {
@@ -37,15 +45,29 @@ export default function CarList() {
   const [orderBy, setOrderBy] = useState<keyof Car>("marca");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [openAddModal, setOpenAddModal] = useState(false);
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [newCar, setNewCar] = useState<Omit<Car, "id">>({
+    modelo: "",
+    marca: "",
+    color: "",
+    precio_venta: 0,
+    caracteristicas: "",
+  });
+  const [editCar, setEditCar] = useState<Car | null>(null);
 
   useEffect(() => {
     const fetchCars = async () => {
       try {
-        const response = await axios.get("http://localhost:5555/api/carros"); // Ajusta la URL según tu backend
-        setCars(response.data.cars);
-      } catch (error) {
-        console.error("Error al obtener los carros:", error);
-        setError("No se pudieron cargar los datos.");
+        const response = await fetch("http://localhost:4000/api/carros");
+        if (!response.ok) {
+          throw new Error("Error al obtener los carros");
+        }
+        const data: Car[] = await response.json();
+        setCars(data);
+      } catch (error: any) {
+        setError(error.message);
       }
     };
 
@@ -88,13 +110,89 @@ export default function CarList() {
     setPage(0);
   };
 
-  const handleDelete = () => {
-    console.log("Eliminar elementos:", selected);
+  const handleDelete = async () => {
+    try {
+      for (const id of selected) {
+        const response = await fetch(`http://localhost:4000/api/carros/${id}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) {
+          throw new Error("Error al eliminar el carro");
+        }
+      }
+      setCars(cars.filter((car) => !selected.includes(car.id)));
+      setSelected([]);
+      setOpenDeleteModal(false);
+    } catch (error: any) {
+      setError(error.message);
+    }
   };
 
-  const handleUpdate = () => {
-    console.log("Actualizar elemento:", selected[0]);
+  const handleUpdate = async () => {
+    if (editCar) {
+      try {
+        const response = await fetch(`http://localhost:4000/api/carros/${editCar.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editCar),
+        });
+        if (!response.ok) {
+          throw new Error("Error al actualizar el carro");
+        }
+        const updatedCar = await response.json();
+        setCars(cars.map((car) => (car.id === updatedCar.id ? updatedCar : car)));
+        setOpenEditModal(false);
+      } catch (error: any) {
+        setError(error.message);
+      }
+    }
   };
+
+  const handleAdd = async () => {
+    try {
+      const response = await fetch("http://localhost:4000/api/carros", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newCar),
+      });
+      if (!response.ok) {
+        throw new Error("Error al agregar el carro");
+      }
+      const addedCar = await response.json();
+      setCars([...cars, addedCar]);
+      setOpenAddModal(false);
+      setNewCar({
+        modelo: "",
+        marca: "",
+        color: "",
+        precio_venta: 0,
+        caracteristicas: "",
+      });
+    } catch (error: any) {
+      setError(error.message);
+    }
+  };
+
+  const handleOpenAddModal = () => setOpenAddModal(true);
+  const handleCloseAddModal = () => setOpenAddModal(false);
+
+  const handleOpenEditModal = () => {
+    if (selected.length === 1) {
+      const carToEdit = cars.find((car) => car.id === selected[0]);
+      if (carToEdit) {
+        setEditCar(carToEdit);
+        setOpenEditModal(true);
+      }
+    }
+  };
+  const handleCloseEditModal = () => setOpenEditModal(false);
+
+  const handleOpenDeleteModal = () => setOpenDeleteModal(true);
+  const handleCloseDeleteModal = () => setOpenDeleteModal(false);
 
   const sortedCars = [...cars].sort((a, b) => {
     const valA = a[orderBy];
@@ -121,89 +219,87 @@ export default function CarList() {
             {selected.length} seleccionados
           </Typography>
 
-          {selected.length > 0 && (
+          {selected.length > 0 ? (
             <>
-              <IconButton color="secondary" onClick={handleDelete} sx={{ ml: 2 }}>
+              <IconButton color="secondary" onClick={handleOpenDeleteModal} sx={{ ml: 2 }}>
                 <DeleteIcon />
               </IconButton>
               <IconButton
                 color="primary"
-                onClick={handleUpdate}
+                onClick={handleOpenEditModal}
                 sx={{ ml: 2 }}
                 disabled={selected.length !== 1}
               >
                 <EditIcon />
               </IconButton>
             </>
+          ) : (
+            <IconButton color="primary" onClick={handleOpenAddModal} sx={{ ml: 2 }}>
+              <AddIcon />
+            </IconButton>
           )}
         </Toolbar>
 
-        {error ? (
-          <Typography color="error" sx={{ textAlign: "center", py: 2 }}>
-            {error}
-          </Typography>
-        ) : (
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    color="primary"
-                    indeterminate={selected.length > 0 && selected.length < cars.length}
-                    checked={cars.length > 0 && selected.length === cars.length}
-                    onChange={handleSelectAllClick}
-                  />
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === "marca"}
-                    direction={orderBy === "marca" ? order : "asc"}
-                    onClick={() => handleRequestSort("marca")}
-                  >
-                    Marca y Modelo
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>Color</TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === "precio_venta"}
-                    direction={orderBy === "precio_venta" ? order : "asc"}
-                    onClick={() => handleRequestSort("precio_venta")}
-                  >
-                    Precio de Venta
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>Características</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sortedCars.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((car) => {
-                const isItemSelected = isSelected(car.id);
+        <Table>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  color="primary"
+                  indeterminate={selected.length > 0 && selected.length < cars.length}
+                  checked={cars.length > 0 && selected.length === cars.length}
+                  onChange={handleSelectAllClick}
+                />
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === "marca"}
+                  direction={orderBy === "marca" ? order : "asc"}
+                  onClick={() => handleRequestSort("marca")}
+                >
+                  Marca y Modelo
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>Color</TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === "precio_venta"}
+                  direction={orderBy === "precio_venta" ? order : "asc"}
+                  onClick={() => handleRequestSort("precio_venta")}
+                >
+                  Precio de Venta
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>Características</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sortedCars.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((car) => {
+              const isItemSelected = isSelected(car.id);
 
-                return (
-                  <TableRow
-                    key={car.id}
-                    selected={isItemSelected}
-                    onClick={() => handleClick(car.id)}
-                    hover
-                    sx={{
-                      backgroundColor: isItemSelected ? "#d3e3fc" : "inherit",
-                      borderRadius: "8px",
-                    }}
-                  >
-                    <TableCell padding="checkbox">
-                      <Checkbox color="primary" checked={isItemSelected} />
-                    </TableCell>
-                    <TableCell>{car.marca} {car.modelo}</TableCell>
-                    <TableCell>{car.color}</TableCell>
-                    <TableCell>${car.precio_venta.toLocaleString()}</TableCell>
-                    <TableCell>{car.caracteristicas || "N/A"}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
+              return (
+                <TableRow
+                  key={car.id}
+                  selected={isItemSelected}
+                  onClick={() => handleClick(car.id)}
+                  hover
+                  sx={{
+                    backgroundColor: isItemSelected ? "#d3e3fc" : "inherit",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <TableCell padding="checkbox">
+                    <Checkbox color="primary" checked={isItemSelected} />
+                  </TableCell>
+                  <TableCell>{car.marca} {car.modelo}</TableCell>
+                  <TableCell>{car.color}</TableCell>
+                  <TableCell>${car.precio_venta.toLocaleString()}</TableCell>
+                  <TableCell>{car.caracteristicas || "N/A"}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
 
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
@@ -215,6 +311,152 @@ export default function CarList() {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </TableContainer>
+
+      {/* Add Car Modal */}
+      <Modal open={openAddModal} onClose={handleCloseAddModal}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 400,
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            p: 4,
+            borderRadius: "8px",
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Agregar Carro
+          </Typography>
+          <TextField
+            label="Marca"
+            fullWidth
+            margin="normal"
+            value={newCar.marca}
+            onChange={(e) => setNewCar({ ...newCar, marca: e.target.value })}
+          />
+          <TextField
+            label="Modelo"
+            fullWidth
+            margin="normal"
+            value={newCar.modelo}
+            onChange={(e) => setNewCar({ ...newCar, modelo: e.target.value })}
+          />
+          <TextField
+            label="Color"
+            fullWidth
+            margin="normal"
+            value={newCar.color}
+            onChange={(e) => setNewCar({ ...newCar, color: e.target.value })}
+          />
+          <TextField
+            label="Precio de Venta"
+            fullWidth
+            margin="normal"
+            type="number"
+            value={newCar.precio_venta}
+            onChange={(e) => setNewCar({ ...newCar, precio_venta: Number(e.target.value) })}
+          />
+          <TextField
+            label="Características"
+            fullWidth
+            margin="normal"
+            value={newCar.caracteristicas}
+            onChange={(e) => setNewCar({ ...newCar, caracteristicas: e.target.value })}
+          />
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+            <Button onClick={handleCloseAddModal} sx={{ mr: 2 }}>
+              Cancelar
+            </Button>
+            <Button variant="contained" onClick={handleAdd}>
+              Agregar
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Edit Car Modal */}
+      <Modal open={openEditModal} onClose={handleCloseEditModal}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 400,
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            p: 4,
+            borderRadius: "8px",
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Editar Carro
+          </Typography>
+          <TextField
+            label="Marca"
+            fullWidth
+            margin="normal"
+            value={editCar?.marca || ""}
+            onChange={(e) => setEditCar({ ...editCar!, marca: e.target.value })}
+          />
+          <TextField
+            label="Modelo"
+            fullWidth
+            margin="normal"
+            value={editCar?.modelo || ""}
+            onChange={(e) => setEditCar({ ...editCar!, modelo: e.target.value })}
+          />
+          <TextField
+            label="Color"
+            fullWidth
+            margin="normal"
+            value={editCar?.color || ""}
+            onChange={(e) => setEditCar({ ...editCar!, color: e.target.value })}
+          />
+          <TextField
+            label="Precio de Venta"
+            fullWidth
+            margin="normal"
+            type="number"
+            value={editCar?.precio_venta || 0}
+            onChange={(e) => setEditCar({ ...editCar!, precio_venta: Number(e.target.value) })}
+          />
+          <TextField
+            label="Características"
+            fullWidth
+            margin="normal"
+            value={editCar?.caracteristicas || ""}
+            onChange={(e) => setEditCar({ ...editCar!, caracteristicas: e.target.value })}
+          />
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+            <Button onClick={handleCloseEditModal} sx={{ mr: 2 }}>
+              Cancelar
+            </Button>
+            <Button variant="contained" onClick={handleUpdate}>
+              Actualizar
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={openDeleteModal} onClose={handleCloseDeleteModal}>
+        <DialogTitle>Confirmar Eliminación</DialogTitle>
+        <DialogContent>
+          <Typography>
+            ¿Estás seguro de que deseas eliminar los carros seleccionados?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteModal}>Cancelar</Button>
+          <Button onClick={handleDelete} color="error">
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
