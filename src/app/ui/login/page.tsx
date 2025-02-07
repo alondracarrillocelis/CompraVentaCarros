@@ -1,88 +1,90 @@
 "use client";
-
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // Correcto para Next.js 13+
-import { useForm } from "react-hook-form";
-// import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Formik, Form, Field, FieldProps } from "formik";
+import * as Yup from "yup";
+import { TextField, Button, Paper, Box, Typography, Card, Fade } from "@mui/material";
 
-type FormData = {
-  email: string;
-  password: string;
-};
+// Esquema de validación con Yup
+const validationSchema = Yup.object({
+  email: Yup.string()
+    .email("Formato de email inválido")
+    .required("El email es obligatorio"),
+  password: Yup.string()
+    .min(5, "La contraseña debe tener al menos 6 caracteres")
+    .required("La contraseña es obligatoria"),
+});
 
 export default function LoginForm() {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
 
-  // Este efecto asegura que useRouter solo se utiliza en el lado del cliente
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const onSubmit = async (data: FormData) => {
-    setLoading(true);
-    setMessage("");
-    console.log("{email: 'charro@gmail.com', password: 'as11'}")
-
-    // Aquí solo tenemos un ejemplo simple para la comparación de contraseñas
-    if (data.email === "uriel@gmail.com" && data.password === "pumas") {
-      setMessage("Inicio de sesión exitoso ✅");
-      if (isClient) {
-        router.push("./carros"); // Redirige al dashboard después del login
-      }
-    } else {
-      setMessage("Credenciales incorrectas ❌");
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(""), 5000);
+      return () => clearTimeout(timer);
     }
+  }, [message]);
 
-    setLoading(false);
-  };
-
-  if (!isClient) {
-    return null; 
-  }
+  if (!isClient) return null;
 
   return (
-    <div className="max-w-screen-sm mx-auto mt-10 p-12 border border-black rounded-lg shadow-md bg-white">
-      <h2 className="text-2xl font-semibold text-center mb-4">Iniciar sesión</h2>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Campo Email */}
-        <div>
-          <label className="block font-medium">Email:</label>
-          <input
-            type="email"
-            {...register("email", { required: "El email es obligatorio" })}
-            className="w-full border p-2 rounded"
-          />
-          {errors.email && <p className="text-red-500">{errors.email.message}</p>}
-        </div>
-
-        {/* Campo Password */}
-        <div>
-          <label className="block font-medium">Contraseña:</label>
-          <input
-            type="password"
-            {...register("password", { required: "La contraseña es obligatoria" })}
-            className="w-full border p-2 rounded"
-          />
-          {errors.password && <p className="text-red-500">{errors.password.message}</p>}
-        </div>
-
-        {/* Botón de Envío */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-green-700 text-white p-2 rounded hover:bg-blue-500 transition"
-        >
-          {loading ? "Iniciando sesión..." : "Iniciar sesión"}
-        </button>
-      </form>
-      
-      {/* Mensajes de respuesta */}
-      {message && <p className="mt-4 text-center font-medium">{message}</p>}
-    </div>
+    <Formik
+      initialValues={{ email: "", password: "" }}
+      validationSchema={validationSchema}
+      onSubmit={(values) => {
+        setLoading(true);
+        setMessage("");
+        if (values.email === "uriel@gmail.com" && values.password === "pumas") {
+          setMessage("Inicio de sesión exitoso ✅");
+          router.push("./carros");
+        } else {
+          setMessage("Credenciales incorrectas ❌");
+        }
+        setLoading(false);
+      }}
+    >
+      {({ errors, touched }) => (
+        <Form>
+          <Box sx={{ display: "flex", height: "100vh" }}>
+            <Paper
+              elevation={6}
+              sx={{ width: "40%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: 4, backgroundColor: "rgba(255, 255, 255, 0.9)" }}
+            >
+              <Typography variant="h4" fontWeight="bold" gutterBottom>
+                Iniciar Sesión
+              </Typography>
+              <Field name="email">
+                {({ field }: FieldProps) => (
+                  <TextField {...field} label="Email" fullWidth margin="normal" size="small" sx={{ borderRadius: 2 }} error={touched.email && !!errors.email} helperText={touched.email && errors.email} />
+                )}
+              </Field>
+              <Field name="password">
+                {({ field }: FieldProps) => (
+                  <TextField {...field} label="Contraseña" type="password" fullWidth margin="normal" size="small" sx={{ borderRadius: 2 }} error={touched.password && !!errors.password} helperText={touched.password && errors.password} />
+                )}
+              </Field>
+              <Button type="submit" variant="contained" fullWidth color="primary" disabled={loading} sx={{ marginTop: 2, borderRadius: 2, padding: "6px 16px", fontSize: "0.875rem" }}>
+                {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+              </Button>
+            </Paper>
+            <Box sx={{ flex: 1, backgroundImage: "url(https://s0.smartresize.com/wallpaper/678/394/HD-wallpaper-cars-pursuit-road-forest.jpg)", backgroundSize: "cover", backgroundPosition: "center", position: "relative" }}>
+              <Box sx={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(0, 0, 0, 0.5)" }} />
+            </Box>
+            <Fade in={!!message} timeout={500}>
+              <Card sx={{ position: "fixed", bottom: 20, left: 20, padding: 2, backgroundColor: "rgba(50, 50, 50, 0.9)", color: "white" }}>
+                <Typography>{message}</Typography>
+              </Card>
+            </Fade>
+          </Box>
+        </Form>
+      )}
+    </Formik>
   );
 }
