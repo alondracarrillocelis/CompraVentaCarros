@@ -60,7 +60,7 @@ export default function CarList() {
   useEffect(() => {
     const fetchCars = async () => {
       try {
-        const response = await fetch("http://localhost:4000/api/carros");
+        const response = await fetch("http://localhost:5555/api/carros");
         if (!response.ok) {
           throw new Error("Error al obtener los carros");
         }
@@ -113,7 +113,7 @@ export default function CarList() {
   const handleDelete = async () => {
     try {
       for (const id of selected) {
-        const response = await fetch(`http://localhost:4000/api/carros/${id}`, {
+        const response = await fetch(`http://localhost:5555/api/carros/${id}`, {
           method: "DELETE",
         });
         if (!response.ok) {
@@ -131,7 +131,7 @@ export default function CarList() {
   const handleUpdate = async () => {
     if (editCar) {
       try {
-        const response = await fetch(`http://localhost:4000/api/carros/${editCar.id}`, {
+        const response = await fetch(`http://localhost:3000/api/carros/${editCar.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -178,8 +178,16 @@ export default function CarList() {
   };
 
   const handleOpenAddModal = () => setOpenAddModal(true);
-  const handleCloseAddModal = () => setOpenAddModal(false);
-
+  const handleCloseAddModal = () => {
+    setOpenAddModal(false);
+    setNewCar({
+      modelo: "",
+      marca: "",
+      color: "",
+      precio_venta: 0,
+      caracteristicas: "",
+    });
+  };
   const handleOpenEditModal = () => {
     if (selected.length === 1) {
       const carToEdit = cars.find((car) => car.id === selected[0]);
@@ -189,8 +197,10 @@ export default function CarList() {
       }
     }
   };
-  const handleCloseEditModal = () => setOpenEditModal(false);
-
+  const handleCloseEditModal = () => {
+    setOpenEditModal(false);
+    setEditCar(null);
+  };
   const handleOpenDeleteModal = () => setOpenDeleteModal(true);
   const handleCloseDeleteModal = () => setOpenDeleteModal(false);
 
